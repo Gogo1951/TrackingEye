@@ -1,4 +1,4 @@
-# WoW-TrackingEye
+# TrackingEye
 World of Warcraft Classic Tracking Plugin
 
 Replaces the minimap tracking icon with a button that can be used to switch the current tracking type. Clicking the button will display a context menu with all tracking options available to the current character. Right clicking the button will cancel tracking.
