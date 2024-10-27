@@ -1,159 +1,168 @@
-
---====================================================================================================================================================
--- TrackingEye-1.0
---
--- A simple addon to add a tracking button to the minimap.
---
+-- SimpleTrackingEye
+-- A simple addon to add a tracking button to the minimap using LibDBIcon.
 -- License: MIT
---====================================================================================================================================================
 
-local TrackingEye = LibStub("AceAddon-3.0"):NewAddon("TrackingEye", "AceConsole-3.0", "AceEvent-3.0")
-local LibDD = LibStub:GetLibrary("LibUIDropDownMenu-4.0")
+local SimpleTrackingEye = {}
+local LDB = LibStub:GetLibrary("LibDataBroker-1.1")
+local icon = LibStub("LibDBIcon-1.0")
 
-------------------------------------------------------------------------------------------------------------------------------------------------------
--- Initialise Tracking Eye
---
--- Setups up default profile values, and registers for all events etc.
-------------------------------------------------------------------------------------------------------------------------------------------------------
-function TrackingEye:OnInitialize()
-	self:RegisterChatCommand("te", "MinimapButton_ChatCommand")
-
-	MiniMapTracking:GetScript("OnMouseUp");
-	MiniMapTracking:SetScript("OnMouseUp", function( self, button )
-		if (button == "RightButton") then
-			TrackingEye:TrackingMenu_Open();
-		else
-			ToggleDropDownMenu(1,nil,MiniMapTrackingDropDown,"cursor")
-		end
-	end)
-
-	local Minimap_OnMouseUp = Minimap:GetScript("OnMouseUp");
-	Minimap:SetScript("OnMouseUp", function( self, button )
-		if (button == "RightButton") then
-			TrackingEye:TargetMenu_Open()
-		else
-			Minimap_OnMouseUp(self, button)
-		end
-	end)
+-- Ensure UIDropDownMenu library is loaded
+if not EasyMenu then
+    LoadAddOn("Blizzard_UIDropDownMenu")
 end
 
-------------------------------------------------------------------------------------------------------------------------------------------------------
--- Create the Tracking Eye tracking context menu.
---
--- Will check what spells are known and populate the menu with all usable tracking types.
-------------------------------------------------------------------------------------------------------------------------------------------------------
-function TrackingEye:TrackingMenu_Open()
-	local menu =
-	{
-		{
-			text = "Select Tracking", isTitle = true
-		}
-	}
-
-	-- In level order, with racial/professions last
-	local spells =
-	{
-		1494,	--Track Beasts
-		19883,	--Track Humanoids
-		19884,	--Track Undead
-		19885,	--Track Hidden
-		19880,	--Track Elementals
-		19878,	--Track Demons
-		19882,	--Track Giants
-		19879,	--Track Dragonkin
-		5225,	--Track Humanoids: Druid
-		5500,	--Sense Demons
-		5502,	--Sense Undead
-		2383,	--Find Herbs
-		2580,	--Find Minerals
-		2481	--Find Treasure
-	}
-
-	for key,spellId in ipairs(spells) do
-		spellName = GetSpellInfo(spellId)
-		if IsPlayerSpell(spellId) then
-			table.insert(menu,
-			{
-				text = spellName,
-				icon = GetSpellTexture(spellId),
-				func = function()
-					CastSpellByID(spellId)
-				end
-			})
-		end
-	end
-
-	table.insert(menu,
-	{
-		text = "None",
-		func = function()
-			CancelTrackingBuff()
-		end
-	})
-
-	local menuFrame = CreateFrame("Frame", "TrackingEyeTrackingMenu", UIParent, "UIDropDownMenuTemplate")
-	EasyMenu(menu, menuFrame, "cursor", 0 , 0, "MENU");
+-- Fallback if EasyMenu still isn't available
+if not EasyMenu then
+    function EasyMenu(menuList, menuFrame, anchor, xOffset, yOffset, displayMode, autoHideDelay)
+        if (not menuFrame or not menuFrame:GetName()) then
+            menuFrame = CreateFrame("Frame", "EasyMenuDummyFrame", UIParent, "UIDropDownMenuTemplate")
+        end
+        UIDropDownMenu_Initialize(menuFrame, function(self, level, menuList)
+            for i = 1, #menuList do
+                local info = UIDropDownMenu_CreateInfo()
+                for k, v in pairs(menuList[i]) do
+                    info[k] = v
+                end
+                UIDropDownMenu_AddButton(info, level)
+            end
+        end, displayMode, nil, menuList)
+        ToggleDropDownMenu(1, nil, menuFrame, anchor, xOffset, yOffset, menuList, nil, autoHideDelay)
+    end
 end
 
-------------------------------------------------------------------------------------------------------------------------------------------------------
--- Create the Tracking Eye target context menu.
---
--- Will search for a context menu and then convert it to a targeting menu.
-------------------------------------------------------------------------------------------------------------------------------------------------------
-function TrackingEye:TargetMenu_Open()
-	if UnitAffectingCombat('player') then
-		print("|c00ff0000Tracking eye menu can't be used in combat.")
-		return
-	end
+-- List of tracking spells (IDs)
+local trackingSpells = {
+    1494,   -- Track Beasts
+    19883,  -- Track Humanoids
+    19884,  -- Track Undead
+    19885,  -- Track Hidden
+    19880,  -- Track Elementals
+    19878,  -- Track Demons
+    19882,  -- Track Giants
+    19879,  -- Track Dragonkin
+    5225,   -- Track Humanoids (Druid, only in Cat Form)
+    5500,   -- Sense Demons
+    5502,   -- Sense Undead
+    2383,   -- Find Herbs
+    2580,   -- Find Minerals
+    2481    -- Find Treasure
+}
 
-	local targets = GameTooltipTextLeft1:GetText();
+-- Create a DataBroker object
+local trackingLDB = LDB:NewDataObject("SimpleTrackingEye", {
+    type = "data source",
+    text = "SimpleTrackingEye",
+    icon = "Interface\\Icons\\INV_Misc_Map_01", -- Default icon when no tracking is active
+    OnClick = function(_, button)
+        if button == "LeftButton" then
+            SimpleTrackingEye:OpenTrackingMenu()
+        elseif button == "RightButton" then
+            SimpleTrackingEye:CancelTrackingBuff()
+        end
+    end,
+    OnTooltipShow = function(tooltip)
+        tooltip:AddLine("SimpleTrackingEye")
+        tooltip:AddLine("Left-click to select tracking.")
+        tooltip:AddLine("Right-click to cancel tracking.")
+    end
+})
 
-	if (targets == nil or targets == '') then
-		return
-	end
+-- Default minimap button settings
+local db = {
+    minimap = {
+        hide = false, -- This allows users to toggle the minimap button
+    }
+}
 
-	local lines = split(targets, "\n")
+-- Register the minimap button with LibDBIcon
+icon:Register("SimpleTrackingEye", trackingLDB, db.minimap)
 
-	local menu =
-	{
-		{
-			text = "Select Target", isTitle = true
-		}
-	}
-
-	for i, line in ipairs(lines) do
-		table.insert(menu,
-		{
-			attributes =
-			{
-				type = "macro",
-				macrotext = "/target " .. stripColour(line)
-			},
-			text = line
-		})
-	end
-
-	-- I have added some custom code to LibUIDropDownMenu that handle an "attributes" entry using secure buttons for macro support.
-	local menuFrame = LibDD:Create_UIDropDownMenu("TrackingEyeTargetMenu", UIParent)
-	LibDD:EasyMenu(menu, menuFrame, "cursor", 0 , 0, "MENU");
+-- Function to check if the player is a Druid in Cat Form
+local function IsDruidInCatForm()
+    if UnitClass("player") == "Druid" then
+        for i = 1, 40 do
+            local buffName = UnitBuff("player", i)
+            if buffName == GetSpellInfo(768) then -- 768 is the spell ID for Cat Form
+                return true
+            end
+        end
+    end
+    return false
 end
 
-------------------------------------------------------------------------------------------------------------------------------------------------------
--- Split the passed string into a table using the passed delimiter to mark the end of each item.
-------------------------------------------------------------------------------------------------------------------------------------------------------
-function split(str, delimiter)
-	local result = {};
-	for match in (str..delimiter):gmatch("(.-)"..delimiter) do
-		table.insert(result, match);
-	end
-	return result;
+-- Function to cast the tracking spell by ID
+local function CastTrackingSpell(spellId)
+    if spellId then
+        CastSpellByID(spellId)
+    end
 end
 
-------------------------------------------------------------------------------------------------------------------------------------------------------
--- Remove colour markers from a string
-------------------------------------------------------------------------------------------------------------------------------------------------------
-function stripColour(str)
-	stripped, count  = str:gsub("|c[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]", "")
-	stripped, count  = stripped:gsub("|r", "")
-	return stripped
+-- Function to open the tracking menu with sorted spell names
+function SimpleTrackingEye:OpenTrackingMenu()
+    local menu = {
+        { text = "Select Tracking", isTitle = true }
+    }
+
+    -- Create a table of spells with their names and IDs
+    local spells = {}
+
+    for _, spellId in ipairs(trackingSpells) do
+        local spellName = GetSpellInfo(spellId)
+        if IsPlayerSpell(spellId) then
+            -- Check for Druids and Cat Form for Track Humanoids (Druid)
+            if spellId == 5225 then -- Track Humanoids (Druid spell ID)
+                if IsDruidInCatForm() then
+                    table.insert(spells, {name = spellName, id = spellId, texture = GetSpellTexture(spellId)})
+                end
+            else
+                -- Add all other spells normally
+                table.insert(spells, {name = spellName, id = spellId, texture = GetSpellTexture(spellId)})
+            end
+        end
+    end
+
+    -- Sort the spells alphabetically by name
+    table.sort(spells, function(a, b) return a.name < b.name end)
+
+    -- Add sorted spells to the menu
+    for _, spell in ipairs(spells) do
+        table.insert(menu, {
+            text = spell.name,
+            icon = spell.texture,
+            func = function()
+                CastTrackingSpell(spell.id) -- Cast the spell using the sorted list
+            end
+        })
+    end
+
+    EasyMenu(menu, SimpleTrackingEyeMenu, "cursor", 0, 0, "MENU")
+end
+
+-- Function to cancel the current tracking buff
+function SimpleTrackingEye:CancelTrackingBuff()
+    for i = 1, 40 do
+        local name, _, _, _, _, _, _, _, _, spellId = UnitBuff("player", i)
+        if name and tContains(trackingSpells, spellId) then
+            CancelUnitBuff("player", i)
+            break
+        end
+    end
+end
+
+-- Event handling for updating tracking icon
+local frame = CreateFrame("Frame")
+frame:RegisterEvent("MINIMAP_UPDATE_TRACKING")
+frame:SetScript("OnEvent", function()
+    local trackingTexture = GetTrackingTexture()
+
+    if trackingTexture then
+        trackingLDB.icon = trackingTexture
+    else
+        trackingLDB.icon = "Interface\\Icons\\INV_Misc_Map_01" -- Default icon
+    end
+end)
+
+-- Hide Blizzard's default tracking button
+if MiniMapTrackingFrame then
+    MiniMapTrackingFrame:Hide()
 end
