@@ -2,11 +2,7 @@
 
 This add-on adds a handy tracking icon to your minimap with a button that lets you easily switch between tracking types.
 
-Left-click the button to open a menu showing all the tracking options available to your character.
-
-Right-click the button to cancel your current tracking.
-
-![image](https://github.com/user-attachments/assets/0be8954a-733f-4685-a222-f1c76e323ec3)
+<img width="212" alt="image" src="https://github.com/user-attachments/assets/53bbc30d-6671-4a4a-8cc9-c2373a863fbd">
 
 ## Supported Abilities
 
