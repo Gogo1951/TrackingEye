@@ -23,11 +23,18 @@ Supports:
 * Track Humanoids (Druid, when in Cat Form)
 * Track Undead
 
-## Report Issues
+## Testing
+
+🟢 Classic Era
+🟡 Season of Discovery (Needs a testing volunteer, please reach out.)
+
+## Report Issues & Get Involved
 
 You can find this project on GitHub.
 
 https://github.com/Gogo1951/TrackingEye
+
+Gogo1951 on Discord.
 
 ## Download
 
