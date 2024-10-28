@@ -1,10 +1,10 @@
 # Tracking Eye (Classic Era)
 
-Adds a minimap tracking icon with a button that can be used to switch the current tracking type. 
+This add-on adds a handy tracking icon to your minimap with a button that lets you easily switch between tracking types.
 
-Clicking the button will display a context menu with all tracking options available to the current character. 
+Left-click the button to open a menu showing all the tracking options available to your character.
 
-Right clicking the button will cancel tracking.
+Right-click the button to cancel your current tracking.
 
 Supports:
 
@@ -23,16 +23,22 @@ Supports:
 * Track Humanoids (Druid, when in Cat Form)
 * Track Undead
 
+## Report Issues
 
-# Download
+You can find this project on GitHub.
 
-You can find this on Curseforge https://legacy.curseforge.com/wow/addons/tracking-eye-classic-era
+https://github.com/Gogo1951/TrackingEye
 
-# History
+## Download
+
+You can find this on Curseforge.
+
+https://www.curseforge.com/wow/addons/tracking-eye-classic-era
+
+## History
 
 This is a continuation of LindenRyuujin's Tracking Eye for Classic Era World of Warcraft.
 
 https://www.curseforge.com/wow/addons/tracking-eye
 
 https://github.com/Linden-Ryuujin/WoW-TrackingEye
-
