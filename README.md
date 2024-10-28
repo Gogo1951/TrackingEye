@@ -6,7 +6,9 @@ Left-click the button to open a menu showing all the tracking options available 
 
 Right-click the button to cancel your current tracking.
 
-Supports:
+![image](https://github.com/user-attachments/assets/0be8954a-733f-4685-a222-f1c76e323ec3)
+
+## Supported Abilities
 
 * Find Herbs
 * Find Minerals
