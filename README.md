@@ -1,4 +1,6 @@
-# TrackingEye
+# Tracking Eye (Classic Era)
+
+You can find this on Curseforge https://legacy.curseforge.com/wow/addons/tracking-eye-classic-era
 
 Adds a minimap tracking icon with a button that can be used to switch the current tracking type. 
 
