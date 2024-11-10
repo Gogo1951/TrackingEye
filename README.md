@@ -21,6 +21,20 @@ This add-on adds a handy tracking icon to your minimap with a button that lets y
 * Track Humanoids (Druid, when in Cat Form)
 * Track Undead
 
+## Download
+
+You can find this on Curseforge.
+
+https://www.curseforge.com/wow/addons/tracking-eye-classic-era
+
+## Report Issues & Get Involved
+
+You can find this project on GitHub.
+
+https://github.com/Gogo1951/TrackingEye
+
+Gogo1951 on Discord.
+
 ## Testing Notes
 
 🟢 Classic Era
@@ -32,20 +46,6 @@ This add-on adds a handy tracking icon to your minimap with a button that lets y
 🔴 Retail (Not Tested)
 
 Please reach out if you would like to be involved with testing!
-
-## Report Issues & Get Involved
-
-You can find this project on GitHub.
-
-https://github.com/Gogo1951/TrackingEye
-
-Gogo1951 on Discord.
-
-## Download
-
-You can find this on Curseforge.
-
-https://www.curseforge.com/wow/addons/tracking-eye-classic-era
 
 ## History
 
