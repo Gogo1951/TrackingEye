@@ -21,11 +21,17 @@ This add-on adds a handy tracking icon to your minimap with a button that lets y
 * Track Humanoids (Druid, when in Cat Form)
 * Track Undead
 
-## Testing
+## Testing Notes
 
 🟢 Classic Era
 
-🟡 Season of Discovery (Needs a testing volunteer, please reach out.)
+🟡 Season of Discovery (Minimal Testing)
+
+🔴 Cataclysm Classic (Not Tested)
+
+🔴 Retail (Not Tested)
+
+Please reach out if you would like to be involved with testing!
 
 ## Report Issues & Get Involved
 
