@@ -39,6 +39,8 @@ Gogo1951 on Discord.
 
 🟢 Classic Era
 
+🟡 Classic Hardcore (Minimal Testing)
+
 🟡 Season of Discovery (Minimal Testing)
 
 🔴 Cataclysm Classic (Not Tested)
