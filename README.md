@@ -1,4 +1,4 @@
-# Tracking Eye (Classic Era)
+# Tracking Eye (Classic)
 
 This add-on adds a handy tracking icon to your minimap with a button that lets you easily switch between tracking types.
 
