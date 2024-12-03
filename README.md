@@ -27,14 +27,6 @@ You can find this on Curseforge.
 
 https://www.curseforge.com/wow/addons/tracking-eye-classic-era
 
-## Report Issues & Get Involved
-
-You can find this project on GitHub.
-
-https://github.com/Gogo1951/TrackingEye
-
-Gogo1951 on Discord.
-
 ## Testing Notes
 
 🟢 World of Warcraft Classic : Classic Era
@@ -52,6 +44,14 @@ Gogo1951 on Discord.
 🔴 World of Warcraft
 
 Please reach out if you would like to be involved with testing!
+
+## Report Issues & Get Involved
+
+You can find this project on GitHub.
+
+https://github.com/Gogo1951/TrackingEye
+
+Gogo1951 on Discord.
 
 ## History
 
