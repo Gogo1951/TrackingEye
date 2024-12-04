@@ -57,8 +57,6 @@ https://github.com/Gogo1951/TrackingEye
 
 ## History
 
-This is a continuation of LindenRyuujin's Tracking Eye for Classic Era World of Warcraft.
+## History
 
-https://www.curseforge.com/wow/addons/tracking-eye
-
-https://github.com/Linden-Ryuujin/WoW-TrackingEye
+This is a continuation of LindenRyuujin's [Tracking Eye](https://www.curseforge.com/wow/addons/tracking-eye) for Classic Era World of Warcraft.
