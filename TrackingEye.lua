@@ -1,7 +1,3 @@
--- TrackingEye
--- A simple addon to add a tracking button to the minimap using LibDBIcon.
--- License: MIT
-
 local TrackingEye = {}
 local LDB = LibStub:GetLibrary("LibDataBroker-1.1")
 local icon = LibStub("LibDBIcon-1.0")
@@ -54,6 +50,9 @@ local trackingSpells = {
     19879 -- Track Dragonkin
 }
 
+-- Variable to store the selected tracking spell
+local selectedTrackingSpell
+
 -- Create a DataBroker object
 local trackingLDB =
     LDB:NewDataObject(
@@ -63,7 +62,6 @@ local trackingLDB =
         text = "TrackingEye",
         icon = "Interface\\Icons\\INV_Misc_Map_01", -- Default icon when no tracking is active
         OnClick = function(_, button)
-            -- Left-click only, no right-click functionality
             TrackingEye:OpenTrackingMenu()
         end
     }
@@ -95,37 +93,42 @@ end
 -- Function to cast the tracking spell by ID
 local function CastTrackingSpell(spellId)
     if spellId then
+        selectedTrackingSpell = spellId -- Save the selected spell
         CastSpellByID(spellId)
+    end
+end
+
+-- Function to reapply tracking after resurrection
+local function ReapplyTracking()
+    if selectedTrackingSpell and IsPlayerSpell(selectedTrackingSpell) then
+        -- Exclude Druid Track Humanoids (spellId 5225)
+        if selectedTrackingSpell == 5225 then
+            return
+        end
+        CastTrackingSpell(selectedTrackingSpell)
     end
 end
 
 -- Function to open the tracking menu with sorted spell names
 function TrackingEye:OpenTrackingMenu()
-    -- Add a distinct header for tracking selection within the menu
     local menu = {
-        {text = "|cffffd517Select Tracking Ability|r", isTitle = true, notCheckable = true}, -- Title added to menu
-        {text = " ", isTitle = true, notCheckable = true} -- Line break (blank line)
+        {text = "|cffffd517Select Tracking Ability|r", isTitle = true, notCheckable = true},
+        {text = " ", isTitle = true, notCheckable = true} -- Line break
     }
 
-    -- Create a table of spells with their names and IDs
     local spells = {}
 
     for _, spellId in ipairs(trackingSpells) do
         local spellName = GetSpellInfo(spellId)
         if IsPlayerSpell(spellId) then
-            -- Check for Druids and Cat Form for Track Humanoids (Druid)
-            if spellId == 5225 then -- Track Humanoids (Druid spell ID)
-                if IsDruidInCatForm() then
-                    table.insert(spells, {name = spellName, id = spellId, texture = GetSpellTexture(spellId)})
-                end
-            else
-                -- Add all other spells normally
+            if spellId == 5225 and IsDruidInCatForm() then -- Check for Druid Cat Form
+                table.insert(spells, {name = spellName, id = spellId, texture = GetSpellTexture(spellId)})
+            elseif spellId ~= 5225 then
                 table.insert(spells, {name = spellName, id = spellId, texture = GetSpellTexture(spellId)})
             end
         end
     end
 
-    -- Sort the spells alphabetically by name
     table.sort(
         spells,
         function(a, b)
@@ -133,7 +136,6 @@ function TrackingEye:OpenTrackingMenu()
         end
     )
 
-    -- Add sorted spells to the menu
     for _, spell in ipairs(spells) do
         table.insert(
             menu,
@@ -141,9 +143,9 @@ function TrackingEye:OpenTrackingMenu()
                 text = spell.name,
                 icon = spell.texture,
                 func = function()
-                    CastTrackingSpell(spell.id) -- Cast the spell using the sorted list
+                    CastTrackingSpell(spell.id)
                 end,
-                notCheckable = true -- Ensure no checkboxes appear next to spells
+                notCheckable = true
             }
         )
     end
@@ -151,18 +153,22 @@ function TrackingEye:OpenTrackingMenu()
     EasyMenu(menu, TrackingEyeMenu, "cursor", 0, 0, "MENU")
 end
 
--- Event handling for updating tracking icon
+-- Event handling
 local frame = CreateFrame("Frame")
 frame:RegisterEvent("MINIMAP_UPDATE_TRACKING")
+frame:RegisterEvent("PLAYER_ALIVE")
+frame:RegisterEvent("PLAYER_UNGHOST")
 frame:SetScript(
     "OnEvent",
-    function()
-        local trackingTexture = GetTrackingTexture()
-
-        if trackingTexture then
-            trackingLDB.icon = trackingTexture
-        else
-            trackingLDB.icon = "Interface\\Icons\\INV_Misc_Map_01" -- Default icon
+    function(self, event)
+        if event == "MINIMAP_UPDATE_TRACKING" then
+            local trackingTexture = GetTrackingTexture()
+            trackingLDB.icon = trackingTexture or "Interface\\Icons\\INV_Misc_Map_01"
+        elseif event == "PLAYER_ALIVE" or event == "PLAYER_UNGHOST" then
+            -- Only reapply tracking after resurrection
+            if UnitIsDeadOrGhost("player") == false then
+                ReapplyTracking()
+            end
         end
     end
 )
