@@ -2,7 +2,7 @@
 
 This add-on adds a handy tracking icon to your minimap with a button that lets you easily switch between tracking types.
 
-💀 Tracking Eye will attempt to reapply the tracking ability you were using before you resurrect.
+💀 When you resurrect, Tracking Eye will attempt to reapply the tracking ability you were using before you died.
 
 <img width="212" alt="image" src="https://github.com/user-attachments/assets/53bbc30d-6671-4a4a-8cc9-c2373a863fbd">
 
