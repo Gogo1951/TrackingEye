@@ -32,6 +32,16 @@ if not EasyMenu then
     end
 end
 
+-- Default saved variables
+TrackingEyeDB =
+    TrackingEyeDB or
+    {
+        minimap = {
+            hide = false, -- Whether to hide the minimap button
+            minimapPos = 220 -- Default position on the minimap
+        }
+    }
+
 -- List of tracking spells (IDs)
 local trackingSpells = {
     2383, -- Find Herbs
@@ -67,27 +77,22 @@ local trackingLDB =
     }
 )
 
--- Default minimap button settings
-local db = {
-    minimap = {
-        hide = false -- This allows users to toggle the minimap button
-    }
-}
-
 -- Register the minimap button with LibDBIcon
-icon:Register("TrackingEye", trackingLDB, db.minimap)
+icon:Register("TrackingEye", trackingLDB, TrackingEyeDB.minimap)
 
--- Function to check if the player is a Druid in Cat Form
-local function IsDruidInCatForm()
-    if UnitClass("player") == "Druid" then
-        for i = 1, 40 do
-            local buffName = UnitBuff("player", i)
-            if buffName == GetSpellInfo(768) then -- 768 is the spell ID for Cat Form
-                return true
-            end
+-- Function to save minimap settings on logout
+local function SaveMinimapSettings()
+    TrackingEyeDB.minimap.hide = icon:IsRegistered("TrackingEye") and icon:IsHidden("TrackingEye") or false
+end
+
+-- Function to reapply tracking after resurrection
+local function ReapplyTracking()
+    if selectedTrackingSpell and IsPlayerSpell(selectedTrackingSpell) then
+        -- Exclude Druid Track Humanoids (spellId 5225)
+        if selectedTrackingSpell ~= 5225 then
+            CastSpellByID(selectedTrackingSpell)
         end
     end
-    return false
 end
 
 -- Function to cast the tracking spell by ID
@@ -98,19 +103,47 @@ local function CastTrackingSpell(spellId)
     end
 end
 
--- Function to reapply tracking after resurrection
-local function ReapplyTracking()
-    if selectedTrackingSpell and IsPlayerSpell(selectedTrackingSpell) then
-        -- Exclude Druid Track Humanoids (spellId 5225)
-        if selectedTrackingSpell == 5225 then
-            return
+-- Event handling for saving and loading saved variables
+local frame = CreateFrame("Frame")
+frame:RegisterEvent("PLAYER_LOGOUT")
+frame:RegisterEvent("ADDON_LOADED")
+frame:RegisterEvent("PLAYER_ALIVE")
+frame:RegisterEvent("PLAYER_UNGHOST")
+frame:RegisterEvent("MINIMAP_UPDATE_TRACKING")
+frame:SetScript(
+    "OnEvent",
+    function(self, event, addon)
+        if event == "ADDON_LOADED" and addon == "TrackingEye" then
+            -- Ensure saved variables are properly initialized
+            if not TrackingEyeDB.minimap then
+                TrackingEyeDB.minimap = {
+                    hide = false,
+                    minimapPos = 220
+                }
+            end
+            icon:Refresh("TrackingEye", TrackingEyeDB.minimap) -- Apply saved settings
+        elseif event == "PLAYER_LOGOUT" then
+            SaveMinimapSettings() -- Save settings on logout
+        elseif event == "PLAYER_ALIVE" or event == "PLAYER_UNGHOST" then
+            -- Reapply tracking after resurrection
+            if not UnitIsDeadOrGhost("player") then
+                ReapplyTracking()
+            end
+        elseif event == "MINIMAP_UPDATE_TRACKING" then
+            local trackingTexture = GetTrackingTexture()
+            trackingLDB.icon = trackingTexture or "Interface\\Icons\\INV_Misc_Map_01"
         end
-        CastTrackingSpell(selectedTrackingSpell)
     end
-end
+)
 
--- Function to open the tracking menu with sorted spell names
+-- Function to open the tracking menu
 function TrackingEye:OpenTrackingMenu()
+    -- Ensure trackingSpells is not nil
+    if not trackingSpells then
+        print("Error: trackingSpells table is nil.")
+        return
+    end
+
     local menu = {
         {text = "|cffffd517Select Tracking Ability|r", isTitle = true, notCheckable = true},
         {text = " ", isTitle = true, notCheckable = true} -- Line break
@@ -121,11 +154,7 @@ function TrackingEye:OpenTrackingMenu()
     for _, spellId in ipairs(trackingSpells) do
         local spellName = GetSpellInfo(spellId)
         if IsPlayerSpell(spellId) then
-            if spellId == 5225 and IsDruidInCatForm() then -- Check for Druid Cat Form
-                table.insert(spells, {name = spellName, id = spellId, texture = GetSpellTexture(spellId)})
-            elseif spellId ~= 5225 then
-                table.insert(spells, {name = spellName, id = spellId, texture = GetSpellTexture(spellId)})
-            end
+            table.insert(spells, {name = spellName, id = spellId, texture = GetSpellTexture(spellId)})
         end
     end
 
@@ -152,26 +181,6 @@ function TrackingEye:OpenTrackingMenu()
 
     EasyMenu(menu, TrackingEyeMenu, "cursor", 0, 0, "MENU")
 end
-
--- Event handling
-local frame = CreateFrame("Frame")
-frame:RegisterEvent("MINIMAP_UPDATE_TRACKING")
-frame:RegisterEvent("PLAYER_ALIVE")
-frame:RegisterEvent("PLAYER_UNGHOST")
-frame:SetScript(
-    "OnEvent",
-    function(self, event)
-        if event == "MINIMAP_UPDATE_TRACKING" then
-            local trackingTexture = GetTrackingTexture()
-            trackingLDB.icon = trackingTexture or "Interface\\Icons\\INV_Misc_Map_01"
-        elseif event == "PLAYER_ALIVE" or event == "PLAYER_UNGHOST" then
-            -- Only reapply tracking after resurrection
-            if UnitIsDeadOrGhost("player") == false then
-                ReapplyTracking()
-            end
-        end
-    end
-)
 
 -- Hide Blizzard's default tracking button
 if MiniMapTrackingFrame then
