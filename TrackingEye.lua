@@ -2,6 +2,11 @@ local TrackingEye = {}
 local LDB = LibStub:GetLibrary("LibDataBroker-1.1")
 local icon = LibStub("LibDBIcon-1.0")
 
+-- Centralized error reporting
+local function ReportError(message)
+    print("|cffff0000[TrackingEye Error]:|r " .. message)
+end
+
 -- Ensure UIDropDownMenu library is loaded
 if not EasyMenu then
     LoadAddOn("Blizzard_UIDropDownMenu")
@@ -32,36 +37,34 @@ if not EasyMenu then
     end
 end
 
+-- Ensure TrackingEyeMenu is a valid frame
+if not TrackingEye.MenuFrame then
+    TrackingEye.MenuFrame = CreateFrame("Frame", "TrackingEyeMenuFrame", UIParent, "UIDropDownMenuTemplate")
+end
+
 -- Default saved variables
-TrackingEyeDB =
-    TrackingEyeDB or
-    {
-        minimap = {
-            hide = false, -- Whether to hide the minimap button
-            minimapPos = 220 -- Default position on the minimap
-        }
-    }
+local TrackingEyeDB
 
 -- List of tracking spells (IDs)
 local trackingSpells = {
-    2383, -- Find Herbs
-    2580, -- Find Minerals
-    2481, -- Find Treasure
-    5500, -- Sense Demons
-    5502, -- Sense Undead
-    1494, -- Track Beasts
-    19883, -- Track Humanoids
-    5225, -- Track Humanoids (Druid, only in Cat Form)
-    19884, -- Track Undead
-    19885, -- Track Hidden
-    19880, -- Track Elementals
-    19878, -- Track Demons
-    19882, -- Track Giants
-    19879 -- Track Dragonkin
+    [2383] = "Find Herbs",
+    [2580] = "Find Minerals",
+    [2481] = "Find Treasure",
+    [5500] = "Sense Demons",
+    [5502] = "Sense Undead",
+    [1494] = "Track Beasts",
+    [19883] = "Track Humanoids",
+    [5225] = "Track Humanoids (Cat Form Only)",
+    [19884] = "Track Undead",
+    [19885] = "Track Hidden",
+    [19880] = "Track Elementals",
+    [19878] = "Track Demons",
+    [19882] = "Track Giants",
+    [19879] = "Track Dragonkin"
 }
 
 -- Variable to store the selected tracking spell
-local selectedTrackingSpell
+TrackingEye.SelectedSpell = nil
 
 -- Create a DataBroker object
 local trackingLDB =
@@ -78,29 +81,41 @@ local trackingLDB =
 )
 
 -- Register the minimap button with LibDBIcon
-icon:Register("TrackingEye", trackingLDB, TrackingEyeDB.minimap)
+icon:Register("TrackingEye", trackingLDB, {hide = false, minimapPos = 220})
 
--- Function to save minimap settings on logout
-local function SaveMinimapSettings()
-    TrackingEyeDB.minimap.hide = icon:IsRegistered("TrackingEye") and icon:IsHidden("TrackingEye") or false
+-- Function to toggle the minimap button
+function TrackingEye:ToggleMinimapButton()
+    TrackingEyeDB.minimap.hide = not TrackingEyeDB.minimap.hide
+    if TrackingEyeDB.minimap.hide then
+        icon:Hide("TrackingEye")
+    else
+        icon:Show("TrackingEye")
+    end
 end
 
 -- Function to reapply tracking after resurrection
 local function ReapplyTracking()
-    if selectedTrackingSpell and IsPlayerSpell(selectedTrackingSpell) then
-        -- Exclude Druid Track Humanoids (spellId 5225)
-        if selectedTrackingSpell ~= 5225 then
-            CastSpellByID(selectedTrackingSpell)
+    if TrackingEye.SelectedSpell and IsPlayerSpell(TrackingEye.SelectedSpell) then
+        -- Exclude Druid Track Humanoids (spellId 5225) unless in Cat Form
+        if TrackingEye.SelectedSpell == 5225 then
+            local _, _, _, _, formId = GetShapeshiftFormInfo(3) -- Cat Form index
+            if not formId then
+                ReportError("You must be in Cat Form to use Track Humanoids.")
+                return
+            end
         end
+        CastSpellByID(TrackingEye.SelectedSpell)
     end
 end
 
 -- Function to cast the tracking spell by ID
 local function CastTrackingSpell(spellId)
-    if spellId then
-        selectedTrackingSpell = spellId -- Save the selected spell
-        CastSpellByID(spellId)
+    if not trackingSpells[spellId] then
+        ReportError("Invalid tracking spell ID.")
+        return
     end
+    TrackingEye.SelectedSpell = spellId
+    CastSpellByID(spellId)
 end
 
 -- Event handling for saving and loading saved variables
@@ -114,72 +129,74 @@ frame:SetScript(
     "OnEvent",
     function(self, event, addon)
         if event == "ADDON_LOADED" and addon == "TrackingEye" then
-            -- Ensure saved variables are properly initialized
-            if not TrackingEyeDB.minimap then
-                TrackingEyeDB.minimap = {
-                    hide = false,
-                    minimapPos = 220
-                }
-            end
-            icon:Refresh("TrackingEye", TrackingEyeDB.minimap) -- Apply saved settings
+            _G.TrackingEyeDB = _G.TrackingEyeDB or {minimap = {hide = false, minimapPos = 220}}
+            TrackingEyeDB = _G.TrackingEyeDB
+            icon:Refresh("TrackingEye", TrackingEyeDB.minimap)
         elseif event == "PLAYER_LOGOUT" then
-            SaveMinimapSettings() -- Save settings on logout
+            -- Save settings on logout
+            TrackingEyeDB.minimap.hide = icon:IsHidden("TrackingEye")
         elseif event == "PLAYER_ALIVE" or event == "PLAYER_UNGHOST" then
             -- Reapply tracking after resurrection
             if not UnitIsDeadOrGhost("player") then
                 ReapplyTracking()
             end
         elseif event == "MINIMAP_UPDATE_TRACKING" then
-            local trackingTexture = GetTrackingTexture()
-            trackingLDB.icon = trackingTexture or "Interface\\Icons\\INV_Misc_Map_01"
+            local trackingTexture = GetTrackingTexture() or "Interface\\Icons\\INV_Misc_Map_01"
+            trackingLDB.icon = trackingTexture
         end
     end
 )
 
 -- Function to open the tracking menu
 function TrackingEye:OpenTrackingMenu()
-    -- Ensure trackingSpells is not nil
-    if not trackingSpells then
-        print("Error: trackingSpells table is nil.")
-        return
-    end
-
     local menu = {
         {text = "|cffffd517Select Tracking Ability|r", isTitle = true, notCheckable = true},
-        {text = " ", isTitle = true, notCheckable = true} -- Line break
+        {text = " ", isTitle = true, notCheckable = true, disabled = true} -- Line break
     }
 
     local spells = {}
 
-    for _, spellId in ipairs(trackingSpells) do
-        local spellName = GetSpellInfo(spellId)
+    for spellId, spellName in pairs(trackingSpells) do
         if IsPlayerSpell(spellId) then
             table.insert(spells, {name = spellName, id = spellId, texture = GetSpellTexture(spellId)})
         end
     end
 
-    table.sort(
-        spells,
-        function(a, b)
-            return a.name < b.name
-        end
-    )
-
-    for _, spell in ipairs(spells) do
+    -- If no tracking abilities are available, show a message
+    if #spells == 0 then
         table.insert(
             menu,
             {
-                text = spell.name,
-                icon = spell.texture,
-                func = function()
-                    CastTrackingSpell(spell.id)
-                end,
+                text = "|cffcc3333Sorry, you don't know any tracking abilities.|r",
+                isTitle = true,
                 notCheckable = true
             }
         )
+    else
+        -- Sort and add known abilities to the menu
+        table.sort(
+            spells,
+            function(a, b)
+                return a.name < b.name
+            end
+        )
+
+        for _, spell in ipairs(spells) do
+            table.insert(
+                menu,
+                {
+                    text = spell.name,
+                    icon = spell.texture,
+                    func = function()
+                        CastTrackingSpell(spell.id)
+                    end,
+                    notCheckable = true
+                }
+            )
+        end
     end
 
-    EasyMenu(menu, TrackingEyeMenu, "cursor", 0, 0, "MENU")
+    EasyMenu(menu, TrackingEye.MenuFrame, "cursor", 0, 0, "MENU")
 end
 
 -- Hide Blizzard's default tracking button
