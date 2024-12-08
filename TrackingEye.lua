@@ -80,16 +80,14 @@ local trackingLDB =
     }
 )
 
--- Register the minimap button with LibDBIcon
-icon:Register("TrackingEye", trackingLDB, {hide = false, minimapPos = 220})
-
 -- Function to toggle the minimap button
 function TrackingEye:ToggleMinimapButton()
-    TrackingEyeDB.minimap.hide = not TrackingEyeDB.minimap.hide
     if TrackingEyeDB.minimap.hide then
-        icon:Hide("TrackingEye")
-    else
         icon:Show("TrackingEye")
+        TrackingEyeDB.minimap.hide = false
+    else
+        icon:Hide("TrackingEye")
+        TrackingEyeDB.minimap.hide = true
     end
 end
 
@@ -129,12 +127,22 @@ frame:SetScript(
     "OnEvent",
     function(self, event, addon)
         if event == "ADDON_LOADED" and addon == "TrackingEye" then
+            -- Initialize saved variables
             _G.TrackingEyeDB = _G.TrackingEyeDB or {minimap = {hide = false, minimapPos = 220}}
             TrackingEyeDB = _G.TrackingEyeDB
-            icon:Refresh("TrackingEye", TrackingEyeDB.minimap)
+
+            -- Register minimap icon with LibDBIcon
+            icon:Register("TrackingEye", trackingLDB, TrackingEyeDB.minimap)
+
+            -- Apply visibility state
+            if TrackingEyeDB.minimap.hide then
+                icon:Hide("TrackingEye")
+            else
+                icon:Show("TrackingEye")
+            end
         elseif event == "PLAYER_LOGOUT" then
             -- Save settings on logout
-            TrackingEyeDB.minimap.hide = icon:IsHidden("TrackingEye")
+            -- No additional action needed as LibDBIcon updates TrackingEyeDB automatically
         elseif event == "PLAYER_ALIVE" or event == "PLAYER_UNGHOST" then
             -- Reapply tracking after resurrection
             if not UnitIsDeadOrGhost("player") then
@@ -167,7 +175,7 @@ function TrackingEye:OpenTrackingMenu()
         table.insert(
             menu,
             {
-                text = "|cffcc3333Sorry, you don't know any tracking abilities.|r",
+                text = "|cffff0000No tracking abilities known.|r",
                 isTitle = true,
                 notCheckable = true
             }
