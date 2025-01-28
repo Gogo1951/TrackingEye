@@ -5,7 +5,7 @@
 
 ## X-Curse-Project-ID: 1129680
 
-## Interface: 11505
+## Interface: 11506
 
 ## SavedVariables: TrackingEyeDB
 ## OptionalDeps: Ace3, Masque, LibButtonGlow-1.0, LibActionButton-1.0, LibKeyBound-1.0, LibDBIcon-1.0, LibWindow-1.1, LibDualSpec-1.0
