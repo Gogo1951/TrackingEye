@@ -7,6 +7,6 @@
 
 ## Interface: 11506
 
-## SavedVariables: TrackingEyeDB
+## SavedVariablesPerCharacter: TrackingEyeDB
 
 TrackingEye.lua
