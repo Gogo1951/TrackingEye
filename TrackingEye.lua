@@ -9,7 +9,7 @@ local MINIMAP_RADIUS = 80
 local function InitializeSavedVariables()
     if not TrackingEyeDB then
         TrackingEyeDB = {
-            minimapPos = 45,
+            minimapPos = 272.45,
             selectedSpellId = nil
         }
     end
