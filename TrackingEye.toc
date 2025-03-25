@@ -1,4 +1,4 @@
-### Title: Tracking Eye
+## Title: Tracking Eye
 ## Notes: A simple tracking menu for the minimap.
 ## Author: Linden Ryuujin, Gogo1951
 ## Version: @project-version@
