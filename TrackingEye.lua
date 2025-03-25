@@ -1,4 +1,4 @@
--- TrackingEye Addon
+-- TrackingEye Addon (WoW Classic Era)
 local addonName, TrackingEye = ...
 
 -- Constants
@@ -7,12 +7,12 @@ local MINIMAP_RADIUS = 80
 
 -- SavedVariables initialized on load
 local function InitializeSavedVariables()
-    TrackingEyeDB =
-        TrackingEyeDB or
-        {
+    if not TrackingEyeDB then
+        TrackingEyeDB = {
             minimapPos = 45,
             selectedSpellId = nil
         }
+    end
 end
 
 -- Load dropdown menu addon if not already loaded
@@ -57,12 +57,12 @@ end
 
 -- Reapply saved tracking on login / form change
 local function ReapplyTracking()
-    local id = TrackingEyeDB.selectedSpellId
-    if id and IsPlayerSpell(id) then
-        if id == 5225 and not IsDruidInCatForm() then
+    local spellId = TrackingEyeDB.selectedSpellId
+    if spellId and IsPlayerSpell(spellId) then
+        if spellId == 5225 and not IsDruidInCatForm() then
             return
         end
-        CastSpellByID(id)
+        CastSpellByID(spellId)
     end
 end
 
@@ -70,7 +70,6 @@ end
 local function ClearTracking()
     CancelTrackingBuff()
     TrackingEyeDB.selectedSpellId = nil
-    CloseDropDownMenus()
 end
 
 -- Get x, y offsets for minimap button from angle and radius
@@ -106,9 +105,14 @@ local function BuildMenu(self, level)
     for _, spell in ipairs(spellList) do
         if IsPlayerSpell(spell.id) and (spell.id ~= 5225 or IsDruidInCatForm()) then
             hasTracking = true
+            local icon = GetSpellTexture(spell.id)
+            local displayText = spell.name
+            if icon then
+                displayText = "|T" .. icon .. ":16:16:0:0:64:64:5:59:5:59|t " .. spell.name
+            end
             UIDropDownMenu_AddButton(
                 {
-                    text = spell.name,
+                    text = displayText,
                     checked = (TrackingEyeDB.selectedSpellId == spell.id),
                     func = function()
                         TrackingEyeDB.selectedSpellId = spell.id
@@ -142,6 +146,7 @@ button:EnableMouse(true)
 button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 button:RegisterForDrag("LeftButton")
 button:SetClampedToScreen(true)
+button:Hide()
 
 -- Add icon to button
 button.icon = button:CreateTexture(nil, "ARTWORK")
@@ -149,23 +154,17 @@ button.icon:SetTexture(DEFAULT_MINIMAP_ICON)
 button.icon:SetAllPoints()
 
 -- Tooltip setup
-button:SetScript(
-    "OnEnter",
-    function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_TOPRIGHT")
-        GameTooltip:AddLine("TrackingEye")
-        GameTooltip:AddLine(" ")
-        GameTooltip:AddLine("Left-click : Select Tracking", 1, 1, 1)
-        GameTooltip:AddLine("Right-click : Clear Tracking", 1, 1, 1)
-        GameTooltip:Show()
-    end
-)
-button:SetScript(
-    "OnLeave",
-    function()
-        GameTooltip:Hide()
-    end
-)
+local function ShowTooltip(self)
+    GameTooltip:SetOwner(self, "ANCHOR_TOPRIGHT")
+    GameTooltip:AddLine("TrackingEye")
+    GameTooltip:AddLine(" ")
+    GameTooltip:AddLine("Left-click : Select Tracking", 1, 1, 1)
+    GameTooltip:AddLine("Right-click : Clear Tracking", 1, 1, 1)
+    GameTooltip:Show()
+end
+
+button:SetScript("OnEnter", ShowTooltip)
+button:SetScript("OnLeave", GameTooltip_Hide)
 
 -- Handle button clicks
 button:SetScript(
@@ -232,7 +231,10 @@ f:SetScript(
             ReapplyTracking()
         elseif event == "UPDATE_SHAPESHIFT_FORM" then
             if TrackingEyeDB.selectedSpellId == 5225 and IsDruidInCatForm() then
-                CastSpellByID(5225)
+                local currentTracking = GetTrackingTexture()
+                if not currentTracking then
+                    CastSpellByID(5225)
+                end
             end
         elseif event == "MINIMAP_UPDATE_TRACKING" then
             local texture = GetTrackingTexture()
@@ -240,10 +242,14 @@ f:SetScript(
                 button.icon:SetTexture(texture)
             else
                 button.icon:SetTexture(DEFAULT_MINIMAP_ICON)
-                -- If tracking was canceled (e.g. right click or manually cleared), clear selection
                 TrackingEyeDB.selectedSpellId = nil
-                CloseDropDownMenus()
             end
         end
     end
 )
+
+-- Slash command for debugging
+SLASH_TRACKINGEYE1 = "/trackingeye"
+SlashCmdList["TRACKINGEYE"] = function()
+    print("TrackingEye minimap position: " .. (TrackingEyeDB.minimapPos or "unknown"))
+end
