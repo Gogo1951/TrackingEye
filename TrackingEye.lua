@@ -1,43 +1,38 @@
-local TrackingEye = {}
-local LDB = LibStub:GetLibrary("LibDataBroker-1.1")
-local icon = LibStub:GetLibrary("LibDBIcon-1.0")
+-- TrackingEye Addon
+local addonName, TrackingEye = ...
 
--- Error reporting utility
-local function ReportError(message)
-    print("|cffff0000[TrackingEye Error]:|r " .. message)
+-- Constants
+local DEFAULT_MINIMAP_ICON = "Interface\\Icons\\inv_misc_map_01"
+local MINIMAP_RADIUS = 80
+
+-- SavedVariables initialized on load
+local function InitializeSavedVariables()
+    TrackingEyeDB =
+        TrackingEyeDB or
+        {
+            minimapPos = 45,
+            selectedSpellId = nil
+        }
 end
 
--- Ensure EasyMenu library is loaded
-if not EasyMenu and not LoadAddOn("Blizzard_UIDropDownMenu") then
-    function EasyMenu(menuList, menuFrame, anchor, xOffset, yOffset, displayMode, autoHideDelay)
-        local frameName = menuFrame and menuFrame:GetName() or nil
-        menuFrame = menuFrame or CreateFrame("Frame", "EasyMenuDummyFrame", UIParent, "UIDropDownMenuTemplate")
-        UIDropDownMenu_Initialize(
-            menuFrame,
-            function(_, level)
-                for _, info in ipairs(menuList) do
-                    UIDropDownMenu_AddButton(info, level)
-                end
-            end,
-            displayMode
-        )
-        ToggleDropDownMenu(1, nil, menuFrame, anchor, xOffset, yOffset, menuList, nil, autoHideDelay)
-    end
+-- Load dropdown menu addon if not already loaded
+if not IsAddOnLoaded("Blizzard_UIDropDownMenu") then
+    LoadAddOn("Blizzard_UIDropDownMenu")
 end
 
--- Default saved variables
-local TrackingEyeDB
+-- Create dropdown frame
+local dropdown = CreateFrame("Frame", "TrackingEyeDropdown", UIParent, "UIDropDownMenuTemplate")
 
--- Tracking abilities
-local trackingAbilities = {
+-- List of tracking spells
+local trackingSpells = {
     [2383] = "Find Herbs",
     [2580] = "Find Minerals",
     [2481] = "Find Treasure",
     [5500] = "Sense Demons",
     [5502] = "Sense Undead",
     [1494] = "Track Beasts",
-    [19883] = "Track Humanoids",
-    [5225] = "Track Humanoids (Cat Form Only)",
+    [19883] = "Track Humanoids", -- Hunter
+    [5225] = "Track Humanoids", -- Druid (Cat Form)
     [19884] = "Track Undead",
     [19885] = "Track Hidden",
     [19880] = "Track Elementals",
@@ -46,120 +41,209 @@ local trackingAbilities = {
     [19879] = "Track Dragonkin"
 }
 
-TrackingEye.SelectedAbility = nil
-
--- DataBroker object for minimap button
-local trackingDataBroker =
-    LDB:NewDataObject(
-    "TrackingEye",
-    {
-        type = "data source",
-        text = "TrackingEye",
-        icon = "Interface\\Icons\\inv_misc_map_01",
-        OnClick = function()
-            TrackingEye:OpenTrackingMenu()
+-- Check if Druid is in Cat Form
+local function IsDruidInCatForm()
+    if select(2, UnitClass("player")) ~= "DRUID" then
+        return false
+    end
+    for i = 1, 40 do
+        local _, _, _, _, _, _, _, _, _, spellId = UnitBuff("player", i)
+        if spellId == 768 then
+            return true
         end
-    }
-)
-
-function TrackingEye:ToggleMinimapButton()
-    local hide = not TrackingEyeDB.minimap.hide
-    TrackingEyeDB.minimap.hide = hide
-    icon[hide and "Hide" or "Show"](icon, "TrackingEye")
+    end
+    return false
 end
 
--- Reapply selected tracking ability
-local function ReapplyTrackingAbility()
-    local ability = TrackingEye.SelectedAbility
-    if ability and IsPlayerSpell(ability) then
-        if ability == 5225 and not select(5, GetShapeshiftFormInfo(3)) then
-            ReportError("You must be in Cat Form to use Track Humanoids.")
+-- Reapply saved tracking on login / form change
+local function ReapplyTracking()
+    local id = TrackingEyeDB.selectedSpellId
+    if id and IsPlayerSpell(id) then
+        if id == 5225 and not IsDruidInCatForm() then
             return
         end
-        CastSpellByID(ability)
+        CastSpellByID(id)
     end
 end
 
--- Cast a specific tracking ability
-local function CastTrackingAbility(spellId)
-    if not trackingAbilities[spellId] then
-        ReportError("Invalid tracking ability ID.")
-        return
-    end
-    TrackingEye.SelectedAbility = spellId
-    CastSpellByID(spellId)
+-- Cancel active tracking and clear selection
+local function ClearTracking()
+    CancelTrackingBuff()
+    TrackingEyeDB.selectedSpellId = nil
+    CloseDropDownMenus()
 end
 
--- Build the tracking menu
-local function BuildTrackingMenu()
-    local menu = {
-        {text = "|cffffd517Select Tracking Ability|r", isTitle = true, notCheckable = true},
-        {text = " ", isTitle = true, notCheckable = true, disabled = true}
-    }
+-- Get x, y offsets for minimap button from angle and radius
+local function GetMinimapOffset(angle, radius)
+    local rad = math.rad(angle)
+    return math.cos(rad) * radius, math.sin(rad) * radius
+end
 
-    local availableAbilities = {}
-    for spellId, name in pairs(trackingAbilities) do
-        if IsPlayerSpell(spellId) then
-            table.insert(availableAbilities, {name = name, id = spellId, texture = GetSpellTexture(spellId)})
+-- Build the dropdown menu
+local function BuildMenu(self, level)
+    UIDropDownMenu_AddButton(
+        {
+            text = "Select Tracking Ability",
+            isTitle = true,
+            notCheckable = true
+        },
+        level
+    )
+
+    local spellList = {}
+    for id, name in pairs(trackingSpells) do
+        table.insert(spellList, {id = id, name = name})
+    end
+    table.sort(
+        spellList,
+        function(a, b)
+            return a.name < b.name
         end
-    end
+    )
 
-    if #availableAbilities == 0 then
-        table.insert(menu, {text = "|cffff0000No tracking abilities.|r", isTitle = true, notCheckable = true})
-    else
-        table.sort(
-            availableAbilities,
-            function(a, b)
-                return a.name < b.name
-            end
-        )
-        for _, ability in ipairs(availableAbilities) do
-            table.insert(
-                menu,
+    local hasTracking = false
+
+    for _, spell in ipairs(spellList) do
+        if IsPlayerSpell(spell.id) and (spell.id ~= 5225 or IsDruidInCatForm()) then
+            hasTracking = true
+            UIDropDownMenu_AddButton(
                 {
-                    text = ability.name,
-                    icon = ability.texture,
-                    checked = (TrackingEye.SelectedAbility == ability.id),
+                    text = spell.name,
+                    checked = (TrackingEyeDB.selectedSpellId == spell.id),
                     func = function()
-                        CastTrackingAbility(ability.id)
+                        TrackingEyeDB.selectedSpellId = spell.id
+                        CastSpellByID(spell.id)
+                        CloseDropDownMenus()
                     end
-                }
+                },
+                level
             )
         end
     end
-    return menu
+
+    if not hasTracking then
+        UIDropDownMenu_AddButton(
+            {
+                text = "No Tracking Skills Available",
+                disabled = true,
+                notCheckable = true
+            },
+            level
+        )
+    end
 end
 
-function TrackingEye:OpenTrackingMenu()
-    EasyMenu(BuildTrackingMenu(), TrackingEye.MenuFrame, "cursor", 0, 0, "MENU")
-end
+-- Create minimap button
+local button = CreateFrame("Button", "TrackingEyeMinimapButton", Minimap)
+button:SetSize(32, 32)
+button:SetFrameStrata("MEDIUM")
+button:SetMovable(true)
+button:EnableMouse(true)
+button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+button:RegisterForDrag("LeftButton")
+button:SetClampedToScreen(true)
 
--- Event handling
-local eventFrame = CreateFrame("Frame")
-eventFrame:RegisterEvent("PLAYER_LOGOUT")
-eventFrame:RegisterEvent("ADDON_LOADED")
-eventFrame:RegisterEvent("PLAYER_ALIVE")
-eventFrame:RegisterEvent("PLAYER_UNGHOST")
-eventFrame:RegisterEvent("MINIMAP_UPDATE_TRACKING")
-eventFrame:SetScript(
-    "OnEvent",
-    function(_, event, addon)
-        if event == "ADDON_LOADED" and addon == "TrackingEye" then
-            TrackingEyeDB = _G.TrackingEyeDB or {minimap = {hide = false}}
-            icon:Register("TrackingEye", trackingDataBroker, TrackingEyeDB.minimap)
-            if TrackingEyeDB.minimap.hide then
-                icon:Hide("TrackingEye")
-            end
-        elseif event == "PLAYER_ALIVE" or event == "PLAYER_UNGHOST" then
-            if not UnitIsDeadOrGhost("player") then
-                ReapplyTrackingAbility()
-            end
-        elseif event == "MINIMAP_UPDATE_TRACKING" then
-            trackingDataBroker.icon = GetTrackingTexture() or "Interface\\Icons\\inv_misc_map_01"
+-- Add icon to button
+button.icon = button:CreateTexture(nil, "ARTWORK")
+button.icon:SetTexture(DEFAULT_MINIMAP_ICON)
+button.icon:SetAllPoints()
+
+-- Tooltip setup
+button:SetScript(
+    "OnEnter",
+    function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOPRIGHT")
+        GameTooltip:AddLine("TrackingEye")
+        GameTooltip:AddLine(" ")
+        GameTooltip:AddLine("Left-click : Select Tracking", 1, 1, 1)
+        GameTooltip:AddLine("Right-click : Clear Tracking", 1, 1, 1)
+        GameTooltip:Show()
+    end
+)
+button:SetScript(
+    "OnLeave",
+    function()
+        GameTooltip:Hide()
+    end
+)
+
+-- Handle button clicks
+button:SetScript(
+    "OnClick",
+    function(self, buttonPressed)
+        if buttonPressed == "RightButton" then
+            ClearTracking()
+        else
+            UIDropDownMenu_Initialize(dropdown, BuildMenu, "MENU")
+            ToggleDropDownMenu(1, nil, dropdown, "cursor", 0, 0)
         end
     end
 )
 
-if MiniMapTrackingFrame then
-    MiniMapTrackingFrame:Hide()
+-- Drag logic
+local function OnDragUpdate(self)
+    local mx, my = Minimap:GetCenter()
+    local px, py = GetCursorPosition()
+    local scale = UIParent:GetEffectiveScale()
+    px, py = px / scale, py / scale
+    local angle = math.deg(math.atan2(py - my, px - mx)) % 360
+    TrackingEyeDB.minimapPos = angle
+    local x, y = GetMinimapOffset(angle, MINIMAP_RADIUS)
+    self:SetPoint("CENTER", Minimap, "CENTER", x, y)
 end
+
+button:SetScript(
+    "OnDragStart",
+    function(self)
+        self:SetScript("OnUpdate", OnDragUpdate)
+    end
+)
+
+button:SetScript(
+    "OnDragStop",
+    function(self)
+        self:SetScript("OnUpdate", nil)
+    end
+)
+
+-- Position the button based on saved angle
+local function PositionButton()
+    local angle = TrackingEyeDB.minimapPos or 45
+    local x, y = GetMinimapOffset(angle, MINIMAP_RADIUS)
+    button:SetPoint("CENTER", Minimap, "CENTER", x, y)
+end
+
+-- Event handler frame
+local f = CreateFrame("Frame")
+f:RegisterEvent("ADDON_LOADED")
+f:RegisterEvent("PLAYER_ALIVE")
+f:RegisterEvent("PLAYER_UNGHOST")
+f:RegisterEvent("UPDATE_SHAPESHIFT_FORM")
+f:RegisterEvent("MINIMAP_UPDATE_TRACKING")
+
+f:SetScript(
+    "OnEvent",
+    function(_, event, arg)
+        if event == "ADDON_LOADED" and arg == addonName then
+            InitializeSavedVariables()
+            PositionButton()
+            button:Show()
+        elseif event == "PLAYER_ALIVE" or event == "PLAYER_UNGHOST" then
+            ReapplyTracking()
+        elseif event == "UPDATE_SHAPESHIFT_FORM" then
+            if TrackingEyeDB.selectedSpellId == 5225 and IsDruidInCatForm() then
+                CastSpellByID(5225)
+            end
+        elseif event == "MINIMAP_UPDATE_TRACKING" then
+            local texture = GetTrackingTexture()
+            if texture then
+                button.icon:SetTexture(texture)
+            else
+                button.icon:SetTexture(DEFAULT_MINIMAP_ICON)
+                -- If tracking was canceled (e.g. right click or manually cleared), clear selection
+                TrackingEyeDB.selectedSpellId = nil
+                CloseDropDownMenus()
+            end
+        end
+    end
+)
