@@ -2,12 +2,12 @@
 
 This add-on adds a handy tracking icon to your minimap with a button that lets you easily switch between tracking types.
 
-💀 When you resurrect, Tracking Eye will attempt to reapply the tracking ability you were using before you died.
-
-❗ Note that while we can’t add a menu to the default "Tracking Eye" functionality in Classic, we can make the mini-map button large enough to overlap the default “Tracking Eye.” It’s a bit of a hack, but it’s the only way to make it work in the Classic Era!
+👁️ Note that while we can’t add a menu to the default "Tracking Eye" functionality in Classic, we can make the mini-map button large enough to overlap the default “Tracking Eye.” It’s a bit of a hack, but it’s the only way to make it work in the Classic Era!
 
 <img width="233" alt="image" src="https://github.com/user-attachments/assets/9d432d0c-1f48-4678-a5d3-12aafc8fc685" />
 
+
+💀 When you resurrect, Tracking Eye will attempt to reapply the tracking ability you were using before you died.
 
 ## Supported Abilities
 
